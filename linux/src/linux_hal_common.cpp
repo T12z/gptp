@@ -931,7 +931,8 @@ bool LinuxSharedMemoryIPC::update(
 	uint32_t sync_count,
 	uint32_t pdelay_count,
 	PortState port_state,
-	bool asCapable )
+	bool asCapable,
+	uint64_t tsc )
 {
 	int buf_offset = 0;
 	pid_t process_id = getpid();
@@ -952,6 +953,7 @@ bool LinuxSharedMemoryIPC::update(
 		ptimedata->asCapable = asCapable;
 		ptimedata->port_state   = port_state;
 		ptimedata->process_id   = process_id;
+		ptimedata->x_tsc = tsc;
 		/* unlock */
 		pthread_mutex_unlock((pthread_mutex_t *) shm_buffer);
 	}

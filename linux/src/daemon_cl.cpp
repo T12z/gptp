@@ -42,6 +42,7 @@
 #ifdef ARCH_INTELCE
 #include "linux_hal_intelce.hpp"
 #else
+#include "linux_hal_uio.hpp"
 #include "linux_hal_generic.hpp"
 #endif
 
@@ -72,6 +73,7 @@ void print_usage( char *arg0 ) {
 	fprintf( stderr,
 			"%s <network interface> [-S] [-P] [-M <filename>] "
 			"[-G <group>] [-R <priority 1>] "
+			"[-U <uio-device>] "
 			"[-D <gb_tx_delay,gb_rx_delay,mb_tx_delay,mb_rx_delay>] "
 			"[-T] [-L] [-E] [-GM] [-N] [-INITSYNC <value>] [-OPERSYNC <value>] "
 			"[-INITPDELAY <value>] [-OPERPDELAY <value>] "
@@ -84,6 +86,7 @@ void print_usage( char *arg0 ) {
 		  "\t-P pulse per second\n"
 		  "\t-M <filename> save/restore state\n"
 		  "\t-G <group> group id for shared memory\n"
+		  "\t-U <uio-device> device path for PCI-SHM via UIO interface\n"
 		  "\t-R <priority 1> priority 1 value\n"
 		  "\t-D Phy Delay <gb_tx_delay,gb_rx_delay,mb_tx_delay,mb_rx_delay>\n"
 		  "\t-T force master (ignored when Automotive Profile set)\n"
@@ -149,6 +152,7 @@ int main(int argc, char **argv)
 	off_t restoredatacount = 0;
 	bool restorefailed = false;
 	LinuxIPCArg *ipc_arg = NULL;
+	UIOIPCArg *uio_arg = NULL;
 	bool use_config_file = false;
 	char config_file_path[512];
 	memset(config_file_path, 0, 512);
@@ -207,6 +211,7 @@ int main(int argc, char **argv)
 	LinuxTimerFactory *timer_factory = new LinuxTimerFactory();
 	LinuxConditionFactory *condition_factory = new LinuxConditionFactory();
 	LinuxSharedMemoryIPC *ipc = new LinuxSharedMemoryIPC();
+	UIOSharedMemoryIPC *uio = new UIOSharedMemoryIPC();
 	/* Create Low level network interface object */
 	if( argc < 2 ) {
 		printf( "Interface name required\n" );
@@ -249,6 +254,13 @@ int main(int argc, char **argv)
 					ipc_arg = new LinuxIPCArg(argv[++i]);
 				} else {
 					printf( "Must specify group name on the command line\n" );
+				}
+			}
+			else if( strcmp(argv[i] + 1,  "U") == 0 ) {
+				if( i+1 < argc ) {
+					uio_arg = new UIOIPCArg(argv[++i]);
+				} else {
+					printf( "Must specify uio device number on the command line\n" );
 				}
 			}
 			else if( strcmp(argv[i] + 1,  "P") == 0 ) {
@@ -348,6 +360,13 @@ int main(int argc, char **argv)
 	}
 	portInit.phy_delay = &ether_phy_delay;
 
+	/* In this branch we try to init the UIO-SHM first and fall-back to to POSIX-SHM if that failed */
+	/* This happens despite -G or -U being present. */
+	if( !uio->init( uio_arg ) ) {
+		delete uio;
+		uio = NULL;
+	}
+	if( uio_arg != NULL ) delete uio_arg;
 	if( !ipc->init( ipc_arg ) ) {
 		delete ipc;
 		ipc = NULL;
@@ -381,7 +400,8 @@ int main(int argc, char **argv)
 	}
 
 	pClock = new IEEE1588Clock
-		( false, syntonize, priority1, timerq_factory, ipc,
+		( false, syntonize, priority1, timerq_factory,
+		  uio ? (OS_IPC *)uio : (OS_IPC *)ipc,
 		  lock_factory );
 
 	if( restoredataptr != NULL ) {
@@ -538,6 +558,7 @@ int main(int argc, char **argv)
 	GPTP_LOG_INFO("All threads terminated");
 
 	if( ipc ) delete ipc;
+	if( uio ) delete uio;
 
 	GPTP_LOG_UNREGISTER();
 	return 0;

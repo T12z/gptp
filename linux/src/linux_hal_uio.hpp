@@ -1,6 +1,6 @@
 /******************************************************************************
 
-  Copyright (c) 2009-2012, Intel Corporation
+  Copyright (c) 2012, Intel Corporation
   All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
@@ -31,76 +31,118 @@
 
 ******************************************************************************/
 
-#ifndef AVBTS_OSIPC_HPP
-#define AVBTS_OSIPC_HPP
+/* This is mostly cut&paste from linux_hal_common.hpp */
 
-#include <stdint.h>
-#include <ptptypes.hpp>
+#ifndef LINUX_HAL_UIO_HPP
+#define LINUX_HAL_UIO_HPP
 
 /**@file*/
 
+#include "avbts_osipc.hpp"
+#include "ieee1588.hpp"
+#include <linux_ipc.hpp>
+
+extern "C" {
+#include "ivshmem.h"
+}
+
+#define DEFAULT_UIO_NO 0   /*!< Default index for the UIO SHM device */
+
 /**
- * @brief Generic interface for Inter Process Communication arguments
+ * @brief Extends IPC ARG generic interface to linux
  */
-class OS_IPC_ARG {
+class UIOIPCArg : public OS_IPC_ARG {
+private:
+	int dev_no;
 public:
-	virtual ~OS_IPC_ARG() = 0;
+	/**
+	 * @brief  Initializes IPCArg object
+	 * @param dev_no [in] UIO device index, ie., 0 for /dev/uio0
+	 */
+	UIOIPCArg( char *dev_no ) {
+		this->dev_no = atoi(dev_no);
+	}
+	/**
+	 * @brief Destroys IPCArg internal variables
+	 */
+	virtual ~UIOIPCArg() { }
+	friend class UIOSharedMemoryIPC;
 };
 
-inline OS_IPC_ARG::~OS_IPC_ARG () { }
 
 /**
- * @brief Generic interface for Inter Process Communication
+ * @brief Linux shared memory interface
  */
-class OS_IPC {
+class UIOSharedMemoryIPC:public OS_IPC {
+private:
+	struct ivshmem_dev dev;
+	pthread_mutex_t *lock;
+	gPtpTimeData *ptimedata;
+	int32_t state;
+
 public:
 	/**
-	 * @brief  Initializes the IPC
-	 * @return Implementation dependent
+	 * @brief Initializes the internal flags
 	 */
-    virtual bool init( OS_IPC_ARG *arg = NULL ) = 0;
+	UIOSharedMemoryIPC() {
+		lock = NULL;
+		ptimedata = NULL;
+		state = 0x0;
+	};
 
 	/**
-	 * @brief  Updates IPC values
+	 * @brief Destroys and unlinks shared memory
+	 */
+	~UIOSharedMemoryIPC();
+
+	/**
+	 * @brief  Initializes shared memory with DEFAULT_UIO_NO case arg is null
+	 * @param  barg number of the UIO device
+	 * @return TRUE if no error, FALSE otherwise
+	 */
+	virtual bool init( OS_IPC_ARG *barg = NULL );
+
+	/**
+	 * @brief Updates IPC values
 	 *
 	 * @param ml_phoffset Master to local phase offset
-	 * @param ls_phoffset Local to system phase offset
+	 * @param ls_phoffset Local to slave phase offset
 	 * @param ml_freqoffset Master to local frequency offset
-	 * @param ls_freq_offset Local to system frequency offset
+	 * @param ls_freqoffset Local to slave frequency offset
 	 * @param local_time Local time
 	 * @param sync_count Count of syncs
 	 * @param pdelay_count Count of pdelays
 	 * @param port_state Port's state
 	 * @param asCapable asCapable flag
 	 *
-	 * @return Implementation dependent.
+	 * @return TRUE
 	 */
 	virtual bool update(
-		int64_t  ml_phoffset,
+		int64_t ml_phoffset,
 		int64_t ls_phoffset,
-		FrequencyRatio  ml_freqoffset,
-		FrequencyRatio ls_freq_offset,
+		FrequencyRatio ml_freqoffset,
+		FrequencyRatio ls_freqoffset,
 		uint64_t local_time,
 		uint32_t sync_count,
 		uint32_t pdelay_count,
 		PortState port_state,
 		bool asCapable,
-		uint64_t tsc ) = 0;
+		uint64_t tsc);
 
 	/**
-	 * @brief  Updates grandmaster IPC values
+	 * @brief Updates grandmaster IPC values
 	 *
 	 * @param gptp_grandmaster_id Current grandmaster id (all 0's if no grandmaster selected)
 	 * @param gptp_domain_number gPTP domain number
 	 *
-	 * @return Implementation dependent.
+	 * @return TRUE
 	 */
 	virtual bool update_grandmaster(
 		uint8_t gptp_grandmaster_id[],
-		uint8_t gptp_domain_number ) = 0;
+		uint8_t gptp_domain_number );
 
 	/**
-	 * @brief  Updates network interface IPC values
+	 * @brief Updates network interface IPC values
 	 *
 	 * @param  clock_identity  The clock identity of the interface
 	 * @param  priority1  The priority1 field of the grandmaster functionality of the interface, or 0xFF if not supported
@@ -114,7 +156,7 @@ public:
 	 * @param  log_pdelay_interval  The currentLogPDelayReqInterval field of the grandmaster functionality of the interface, or 0 if not supported
 	 * @param  port_number  The portNumber field of the interface, or 0x0000 if not supported
 	 *
-	 * @return Implementation dependent.
+	 * @return TRUE
 	 */
 	virtual bool update_network_interface(
 		uint8_t  clock_identity[],
@@ -127,15 +169,14 @@ public:
 		int8_t   log_sync_interval,
 		int8_t   log_announce_interval,
 		int8_t   log_pdelay_interval,
-		uint16_t port_number ) = 0;
+		uint16_t port_number );
 
-	/*
-	 * Destroys IPC
+	/**
+	 * @brief unmaps and unlink shared memory
+	 * @return void
 	 */
-	virtual ~OS_IPC() = 0;
+	void stop();
 };
 
-inline OS_IPC::~OS_IPC() {}
 
-#endif
-
+#endif/*LINUX_HAL_UIO_HPP*/

@@ -36,6 +36,7 @@
 #include <avbts_clock.hpp>
 #include <common_tstamper.hpp>
 #include <gptp_cfg.hpp>
+#include <ipcdef.hpp>
 
 CommonPort::CommonPort( PortInit_t *portInit ) :
 	thread_factory( portInit->thread_factory ),
@@ -665,7 +666,7 @@ bool CommonPort::processEvent( Event e )
 				( this, 0, device_time, 1.0,
 				  local_system_offset, system_time,
 				  local_system_freq_offset, getSyncCount(),
-				  pdelay_count, port_state, asCapable );
+				  pdelay_count, port_state, asCapable, rdtsc() );
 		}
 
 		// Call media specific action for completed sync

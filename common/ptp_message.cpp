@@ -1095,6 +1095,8 @@ void PTPMessageFollowUp::processMessage
 	/* Otherwise synchronize clock with approximate Sync time */
 	uint32_t local_clock, nominal_clock_rate;
 	uint32_t device_sync_time_offset;
+	uint64_t tsc;
+	tsc = rdtsc();
 
 	port->getDeviceTime(system_time, device_time, local_clock,
 		nominal_clock_rate);
@@ -1152,7 +1154,7 @@ void PTPMessageFollowUp::processMessage
 		( port, scalar_offset, sync_arrival, local_clock_adjustment,
 		  local_system_offset, system_time, local_system_freq_offset,
 		  port->getSyncCount(), port->getPdelayCount(),
-		  port->getPortState(), port->getAsCapable( ));
+		  port->getPortState(), port->getAsCapable( ), tsc);
 
 		port->syncDone();
 		// Restart the SYNC_RECEIPT timer

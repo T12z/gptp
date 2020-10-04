@@ -41,11 +41,22 @@
  * Windows: Located at windows/daemon_cl/windows_ipc.hpp
 */
 
-#if defined (__unix__) || defined(__linux__)
+#if defined(JAILHOUSE)
+#include <stdint.h>
+#define PID_TYPE    uint32_t
+
+#elif defined (__unix__) || defined(__linux__)
 #include <sys/types.h>
 
 /*Type for process id*/
 #define PID_TYPE    pid_t
+
+/* this rdtsc impl. is limited to x86_64, as is the rest of the customizations. */
+inline uint64_t rdtsc(void) {
+	uint32_t lo, hi;
+	asm volatile("rdtsc" : "=a" (lo), "=d" (hi));
+	return (uint64_t)lo | (((uint64_t)hi) << 32);
+}
 
 #elif defined(_WIN32) || defined(_WIN64)
 
@@ -97,6 +108,10 @@ typedef struct {
 	bool asCapable;                 //!< asCapable flag: true = device is AS Capable; false otherwise
 	PortState port_state;			//!< gPTP port state. It can assume values defined at ::PortState
 	PID_TYPE process_id;			//!< Process id number
+
+	/* JH-trials-specific */
+	uint64_t x_tsc;                  //!< x86-TSC value just before the cross-timestamp for above values, within user-space
+	uint64_t xiv_tsc_offset;            //!< the time between xtsc and when xtsc went down
 } gPtpTimeData;
 
 /*

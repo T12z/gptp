@@ -544,13 +544,15 @@ public:
    * @param  pdelay_count PDelay messages count
    * @param  port_state PortState instance
    * @param  asCapable asCapable flag
+   * @param  tsc the x86 TSC from just before system_time was taken
    */
   void setMasterOffset
   ( CommonPort *port, int64_t master_local_offset,
     Timestamp local_time, FrequencyRatio master_local_freq_offset,
     int64_t local_system_offset, Timestamp system_time,
     FrequencyRatio local_system_freq_offset, unsigned sync_count,
-    unsigned pdelay_count, PortState port_state, bool asCapable );
+    unsigned pdelay_count, PortState port_state, bool asCapable,
+    uint64_t tsc );
 
 	/**
 	 * @brief  Get local:system frequency ratio
