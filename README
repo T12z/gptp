@@ -1,0 +1,7 @@
+This a fork of Intel's gptp daemon from the AVnu project.
+
+I am trying to forward the time on a best effort / least corrupting basis into a bare-metal Jailhouse inmate. I mean, the most precise way would be to assign a NIC to that JH inmate. However, there are many arguments, why you may not want to do that: implementation complexity, safety regulations, security concerns, etc. And the resulting time accuracy uncertainty may be the lesser problem. Let's see where we can get with this.
+
+Note, the modificaions rely on the Invariant-TSC feature of modern x86_64 processors. In principle, it could be implemented for other architectures as well, I just did not do it.
+
+The corresponding Jailhouse inmate 'nollie' can be found in the nanostw repository.
