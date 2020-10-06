@@ -19,6 +19,7 @@ file(GLOB GPTP_COMMON "./common/*.cpp" "./common/*.c")
 if(UNIX)
   include_directories( include "./linux/src" )
   add_definitions(-DPOSIX)
+#  add_definitions(-DDEBUG)
   file(GLOB GPTP_OS 
   "./linux/src/daemon_cl.cpp"
   "./linux/src/linux_ipc.cpp"

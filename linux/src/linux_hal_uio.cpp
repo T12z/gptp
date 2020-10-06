@@ -75,11 +75,19 @@ bool UIOSharedMemoryIPC::update(
 			ptimedata->x_tsc        = tsc;
 		pthread_mutex_unlock( lock );
 		state += 0x100;
+#ifdef DEBUG
+		ivshmem_set_state( &dev, state );
+		iv_reception_tsc = rdtsc();
+#else
 		iv_reception_tsc = ivshmem_set_blocking( &dev, state, &lock->__data.__lock );
+#endif
 		pthread_mutex_lock( lock );
 			/* I could update the delta throughout blocking, however, being non-atomic operations, would lead to data races. */
 			ptimedata->xiv_tsc_offset = iv_reception_tsc - ptimedata->x_tsc;
 		pthread_mutex_unlock( lock );
+#ifdef DEBUG
+		printf("%5d) ml=%5lld ls=%10lld iv_lag=%7llu ls_fo=%Lg\n", sync_count, ml_phoffset, ls_phoffset, ptimedata->xiv_tsc_offset, ls_freqoffset-(FrequencyRatio)1.0);
+#endif
 	}
 	return true;
 }
@@ -130,7 +138,9 @@ bool UIOSharedMemoryIPC::update_network_interface(
 
 void UIOSharedMemoryIPC::stop() {
 	if( ptimedata ) {
+		pthread_mutex_destroy( lock );
 		ivshmem_finalize( &dev );
 		ptimedata = NULL;
+		lock = NULL;
 	}
 }
