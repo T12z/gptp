@@ -258,7 +258,7 @@ int main(int argc, char **argv)
 			}
 			else if( strcmp(argv[i] + 1,  "U") == 0 ) {
 				if( i+1 < argc ) {
-					uio_arg = new UIOIPCArg(argv[++i]);
+					uio_arg = new UIOIPCArg(argv[++i], 1); /* the other peer being id=1 is vague, but common */
 				} else {
 					printf( "Must specify uio device number on the command line\n" );
 				}

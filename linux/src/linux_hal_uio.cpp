@@ -23,6 +23,7 @@ bool UIOSharedMemoryIPC::init( OS_IPC_ARG *barg ) {
 			return false;
 		} else {
 			dev_no = arg->dev_no;
+			target = arg->target;
 		}
 	}
 
@@ -33,8 +34,12 @@ bool UIOSharedMemoryIPC::init( OS_IPC_ARG *barg ) {
 
 	/* any failure, other than the UIO dev missing, will halt the whole program */
 	ivshmem_open(&dev, dev_no, NULL);
-	if ( !dev.rw ) return false;
+	if ( !dev.rw || dev.peers <= 1) return false;
 
+	if ( target == dev.id || target >= dev.peers ) { /* (accidentally?) self-referring or out-pointing */
+		target = DEFAULT_UIO_NO_TARGET;
+	}
+	
 	lock = (pthread_mutex_t *)dev.rw;
 
 	/* create a mutex */
@@ -42,6 +47,7 @@ bool UIOSharedMemoryIPC::init( OS_IPC_ARG *barg ) {
 		error(1, errno, "sharedmem - Mutex initialization failed.");
 
 	ptimedata = (gPtpTimeData *)dev.out;
+	GPTP_LOG_INFO("Using UIO-SHM %d, Poll for IRQ delay? %d ", dev_no, target);
 	return true;
 }
 
@@ -74,13 +80,14 @@ bool UIOSharedMemoryIPC::update(
 			ptimedata->process_id   = process_id;
 			ptimedata->x_tsc        = tsc;
 		pthread_mutex_unlock( lock );
-		state += 0x100;
-#ifdef DEBUG
-		ivshmem_set_state( &dev, state );
-		iv_reception_tsc = rdtsc();
-#else
-		iv_reception_tsc = ivshmem_set_blocking( &dev, state, &lock->__data.__lock );
-#endif
+		lstate += 0x100;
+		
+		if (target >= 0 && dev.lstate[target]) {
+			iv_reception_tsc = ivshmem_set_blocking( &dev, lstate, &lock->__data.__lock );
+		} else {
+			ivshmem_set_state( &dev, lstate );
+			iv_reception_tsc = rdtsc();
+		}
 		pthread_mutex_lock( lock );
 			/* I could update the delta throughout blocking, however, being non-atomic operations, would lead to data races. */
 			ptimedata->xiv_tsc_offset = iv_reception_tsc - ptimedata->x_tsc;

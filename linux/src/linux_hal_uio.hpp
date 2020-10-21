@@ -46,7 +46,8 @@ extern "C" {
 #include "ivshmem.h"
 }
 
-#define DEFAULT_UIO_NO 0   /*!< Default index for the UIO SHM device */
+#define DEFAULT_UIO_NO 0          /*!< Default index for the UIO SHM device */
+#define DEFAULT_UIO_NO_TARGET -1  /*!< If the peer should not be blocked for */
 
 /**
  * @brief Extends IPC ARG generic interface to linux
@@ -54,13 +55,20 @@ extern "C" {
 class UIOIPCArg : public OS_IPC_ARG {
 private:
 	int dev_no;
+	int target;
 public:
 	/**
 	 * @brief  Initializes IPCArg object
-	 * @param dev_no [in] UIO device index, ie., 0 for /dev/uio0
+	 * @param dev_no    [in] UIO device index, ie., 0 for /dev/uio0
+	 * @param target_id [in] index of the other SHM-peer. Leave to -1 if the IPC
+	 *                       update should not block for the other peer to 
+	 *                       ackowledge and measure the delay.
 	 */
-	UIOIPCArg( char *dev_no ) {
-		this->dev_no = atoi(dev_no);
+	UIOIPCArg( const char *dev_no, const int target_id = DEFAULT_UIO_NO_TARGET ) {
+		int ret[2] = { 0, target_id};
+		ivshmem_parse_ids(dev_no, ret, 2, '.');
+		this->dev_no = ret[0];
+		this->target = ret[1];
 	}
 	/**
 	 * @brief Destroys IPCArg internal variables
@@ -78,7 +86,8 @@ private:
 	struct ivshmem_dev dev;
 	pthread_mutex_t *lock;
 	gPtpTimeData *ptimedata;
-	int32_t state;
+	int32_t lstate;
+	int32_t target;
 
 public:
 	/**
@@ -87,7 +96,8 @@ public:
 	UIOSharedMemoryIPC() {
 		lock = NULL;
 		ptimedata = NULL;
-		state = 0x0;
+		lstate = 0x0;
+		target = DEFAULT_UIO_NO_TARGET;
 	};
 
 	/**
