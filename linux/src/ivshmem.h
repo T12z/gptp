@@ -148,11 +148,11 @@ struct ivshmem_cb {
 	#define print printf
 #endif
 
-#if defined(POSIX)
+#if defined(POSIX) || defined(LINUX)
 #include <stdlib.h>
 #endif
 
-#if defined(POSIX) && !defined(PIKEOS_POSIX)
+#if (defined(LINUX)||defined(POSIX) ) && !defined(PIKEOS_POSIX)
 #include <error.h>
 #else
 #ifdef PIKEOS_POSIX

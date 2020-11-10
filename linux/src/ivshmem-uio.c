@@ -11,7 +11,9 @@
  * SPDX-License-Identifier: GPL-2
  */
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 
 #include <errno.h>
 #include <error.h>
@@ -174,7 +176,7 @@ static void ivshmem_init( struct ivshmem_dev *dev, int bdf) {
 	memcpy(dev->lstate, (void *)dev->state, length); /* import initial state, esp. if we are not the first peer. */
 
 	length = read3_ull( bdf, "maps/map2/size");
-	if (length) {/* don't other, if map2 does not even exist */
+	if (length) {/* don't bother, if map2 does not even exist */
 		read3_s( bdf, "maps/map2/name", mname, sizeof(mname));
 	}
 	
