@@ -11,7 +11,9 @@
  * SPDX-License-Identifier: GPL-2
  */
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 
 #include "ivshmem.h"
 
@@ -20,7 +22,7 @@
 #include <p4ext/p4ext_vmem.h>
 #include <p4ext/p4ext_assert.h>
 
-#elif defined(POSIX)
+#elif defined(POSIX)||defined(LINUX)
 #include <errno.h>
 
 #endif

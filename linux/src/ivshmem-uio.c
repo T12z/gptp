@@ -11,7 +11,9 @@
  * SPDX-License-Identifier: GPL-2
  */
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 
 #include <errno.h>
 #include <error.h>
@@ -37,6 +39,7 @@ void ivshmem_reserve(size_t msize) {
 }
 
 /* provide memory barriers against compiler optimizations */
+/* copied from Jailhouse sources */
 static inline void cpu_relax(void)
 {
 	asm volatile("rep; nop" : : : "memory");
@@ -85,8 +88,10 @@ static char * read3_s(int no, const char *p3, char *s, size_t length) {
 	f = fopen(cat_path, "r");
 	if ( !fgets(s, length, f) ) {
 		error(1, errno, "read(%s)", cat_path); /* but if it exists, it must be readable */
-#ifdef DEBUG
 	} else {
+		char *eol = strchr(s, '\n');
+		if (eol) *eol = '\0'; /* discard trailing line break, looks ugly when printed. */
+#ifdef DEBUG
 		printf("IVSHMEM_setup: %s \"%s\"\n", cat_path, s);
 #endif
 	}
@@ -103,7 +108,7 @@ static uint64_t read3_ull(int no, const char *p3) {
 	if ( read3_s(no, p3, s, sizeof(s)) ) {
 		ret = strtoull(s, &endptr, 0);
 #ifdef DEBUG
-		if (ret || *endptr)	printf("--> %ld\n", ret); else printf(" -!-> what is '%c' @ %d ?\n", *endptr, (int)(endptr-s));
+		if (ret || *endptr)	printf("    ---> %ld\n", ret); else printf("    -!-> what is '%c' @ %d ?\n", *endptr, (int)(endptr-s));
 #endif
 	}
 
@@ -136,8 +141,7 @@ static void ivshmem_init( struct ivshmem_dev *dev, int bdf) {
 
 	snprintf( dev_path, sizeof(dev_path), DEVUIOPATH, bdf);
 	int fd = open(dev_path, O_RDWR);
-	if (fd < 0) {
-		/* the only reason we may gracefully fail */
+	if (fd < 0) { /* the only reason we may gracefully fail is when the uio dev is missing. */
 		error(0, errno, "open(%s)", dev_path);
 		return;
 	}
@@ -172,8 +176,9 @@ static void ivshmem_init( struct ivshmem_dev *dev, int bdf) {
 	memcpy(dev->lstate, (void *)dev->state, length); /* import initial state, esp. if we are not the first peer. */
 
 	length = read3_ull( bdf, "maps/map2/size");
-	if (length) /* don't other, if map2 does not even exist */
+	if (length) {/* don't bother, if map2 does not even exist */
 		read3_s( bdf, "maps/map2/name", mname, sizeof(mname));
+	}
 	
 	if (length && mname[0] == 'r' && mname[1] == 'w') {
 		dev->rw_size = length;
@@ -212,6 +217,7 @@ void ivshmem_sti( struct ivshmem_dev *dev ) {
 	mmio_write32(&dev->regs->int_control, 1);
 }
 
+/* This function may block endless if the peer was not checked for proper state before */
 uint64_t ivshmem_set_blocking( struct ivshmem_dev *dev, u32 state, volatile int *passing_flag ) {
 	*passing_flag = 1;
 	memory_barrier();

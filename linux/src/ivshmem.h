@@ -148,11 +148,11 @@ struct ivshmem_cb {
 	#define print printf
 #endif
 
-#if defined(POSIX)
+#if defined(POSIX) || defined(LINUX)
 #include <stdlib.h>
 #endif
 
-#if defined(POSIX) && !defined(PIKEOS_POSIX)
+#if (defined(LINUX)||defined(POSIX) ) && !defined(PIKEOS_POSIX)
 #include <error.h>
 #else
 #ifdef PIKEOS_POSIX
@@ -256,7 +256,8 @@ struct ivshmem_dev {
 
 void ivshmem_sti           ( struct ivshmem_dev *dev );
 toSt ivshmem_set_state     ( struct ivshmem_dev *dev, u32 state );
-/* signal state change and block for acknowledge. The nack field must be in the RW-page. The location is application specific and must be known to both sides. */
+/* Signal state change and block for acknowledge. The nack field must be in the RW-page. The location is application
+   specific and must be known to both sides. Take precautions not to deadlock! */
  u64 ivshmem_set_blocking  ( struct ivshmem_dev *dev, u32 state, volatile int *passing_flag );
 void ivshmem_signal        ( struct ivshmem_dev *dev, u32 intno, u32 target );
 toSt ivshmem_wait_for_state( struct ivshmem_dev *dev, u64 before_ns, u32 target, u32 *state );
